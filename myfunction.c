@@ -19,29 +19,30 @@ typedef struct {
 
 void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sharpRsltImgName, char* filteredBlurRsltImgName, char* filteredSharpRsltImgName, char flag) {
 
-	/*
-	* [1, 1, 1]
-	* [1, 1, 1]
-	* [1, 1, 1]
-	*/
-	int blurKernel[3][3] = {{1, 1, 1}, {1, 1, 1}, {1, 1, 1}};
+    /*
+    * [1, 1, 1]
+    * [1, 1, 1]
+    * [1, 1, 1]
+    */
+    int blurKernel[3][3] = {{1, 1, 1}, {1, 1, 1}, {1, 1, 1}};
 
-	/*
-	* [-1, -1, -1]
-	* [-1, 9, -1]
-	* [-1, -1, -1]
-	*/
-	int sharpKernel[3][3] = {{-1,-1,-1},{-1,9,-1},{-1,-1,-1}};
+    /*
+    * [-1, -1, -1]
+    * [-1, 9, -1]
+    * [-1, -1, -1]
+    */
+    int sharpKernel[3][3] = {{-1,-1,-1},{-1,9,-1},{-1,-1,-1}};
     pixel* pixelsImg = malloc(SIZE);
     pixel* backupOrg = malloc(SIZE);
-    printf("malloc finished");
 
     // iteration on matrix in an optimized way.
-    register int endOfMatrix = MN - 1, i = 0, j = 0, endOfIteration = m - 1;
+    register int endOfMatrix = MN - 1, endOfIteration = m - 1;
+    register int i, j;
 
     if (flag == '1') {
+        j = 0;
         // iteration on matrix in an optimized way.
-        for (; i <= endOfMatrix; ++i ){
+        for (i = 0; i <= endOfMatrix; ++i ){
             pixelsImg[i].red = image->data[j];
             pixelsImg[i].green = image->data[j + 1];
             pixelsImg[i].blue = image->data[j + 2];
@@ -50,8 +51,6 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
             // strength reduction - addon instead of multiplication.
             j += 3;
         }
-        printf("\npixelsImg initiallized\n");
-
         // let's implement the smooth function:
         // avoiding unnessery calculation, using loop unrolling.
         register int  currentColum, currentColumPlus1Row;
@@ -59,9 +58,8 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
         pixel p00, p01, p02, p10, p11, p12, p20, p21, p22;
         register pixel_sum col_0 = {}, col_1 = {}, col_2 = {};
         register pixel sum;
-        i = 1, j = 4;
-        for (; i < endOfIteration; ++i) {
-            currentColum = (i-1);
+        for (i = 1; i < endOfIteration; ++i) {
+            currentColum = (i-1) * m;
             currentColumPlus1Row = currentColum + m;
             currentColumPlus2Row = currentColumPlus1Row + m;
 
@@ -84,7 +82,7 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
             third_2 = third + m;
             third_3 = third_2 + m;
 
-            for (; j <= endOfIteration; j+=2) {
+            for (j = 4; j <= endOfIteration; j+=2) {
                 p02 = backupOrg[third];
                 p12 = backupOrg[third_2];
                 p22 = backupOrg[third_3];
@@ -117,7 +115,6 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
                 sum.blue = (col_0.blue + col_1.blue + col_2.blue) / 9;
                 sum.green = (col_0.green + col_1.green + col_2.green) / 9;
                 sum.red = (col_0.red + col_1.red + col_2.red) / 9;
-
                 pixelsImg[currentColumPlus1Row + 1] = sum;
 
                 col_0 = col_1;
@@ -145,16 +142,14 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
                 pixelsImg[currentColumPlus1Row + 1] = sum;
             }
         }
-        printf("finished loop\n");
-        i = 0, j = 0;
+        j = 0;
         // replacement for the function pixelsToChars, set image-> accordingly.
-        for (; i <= endOfMatrix; ++i ){
+        for (i = 0; i <= endOfMatrix; ++i ){
             image->data[j] = pixelsImg[i].red;
             image->data[j + 1] = pixelsImg[i].green;
             image->data[j + 2] = pixelsImg[i].blue;
             j += 3;
         }
-        printf("image was converted\n");
 
 
 
@@ -162,15 +157,15 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
 
         // write result image to file
         writeBMP(image, srcImgpName, blurRsltImgName);
-        printf("writeBPM was finished");
 
 
 
 
         // sharpen the resulting image
 
+        j = 0;
         // iteration on matrix in an optimized way.
-        for (; i <= endOfMatrix; ++i ){
+        for (i = 0; i <= endOfMatrix; ++i ){
             pixelsImg[i].red = image->data[j];
             pixelsImg[i].green = image->data[j + 1];
             pixelsImg[i].blue = image->data[j + 2];
@@ -179,15 +174,13 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
             // strength reduction - addon instead of multiplication.
             j += 3;
         }
-        printf("pixelsImg was initiallized again\n");
 
         // avoiding unnessery calculation, using loop unrolling.
         currentColum = 0, currentColumPlus1Row = currentColum + m;
         currentColumPlus2Row = currentColumPlus1Row + m;
-        i = 1, j = 4;
         pixel mid;
 
-        for (; i < endOfIteration; ++i) {
+        for (i = 1; i < endOfIteration; ++i) {
             currentColum = (i-1);
             currentColumPlus1Row = currentColum + m;
             currentColumPlus2Row = currentColumPlus1Row + m;
@@ -211,7 +204,7 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
             third_2 = third + m;
             third_3 = third_2 + m;
 
-            for (; j < endOfIteration; j+=2) {
+            for (j = 4; j < endOfIteration; j+=2) {
                 p02 = backupOrg[third];
                 p12 = backupOrg[third_2];
                 p22 = backupOrg[third_3];
@@ -298,11 +291,10 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
                 pixelsImg[currentColumPlus1Row + 1] = sum;
             }
         }
-        printf("loops finished\n");
 
-        i = 0, j = 0;
+        j = 0;
         // replacement for the function pixelsToChars, set image-> accordingly.
-        for (; i <= endOfMatrix; ++i ){
+        for (i = 0; i <= endOfMatrix; ++i ){
             image->data[j] = pixelsImg[i].red;
             image->data[j + 1] = pixelsImg[i].green;
             image->data[j + 2] = pixelsImg[i].blue;
@@ -311,7 +303,6 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
 
         // write result image to file
         writeBMP(image, srcImgpName, sharpRsltImgName);
-        printf("writeBMP finished\n");
     }
 
     else { // flag != '1' - meaning an intensity will be applied
@@ -319,9 +310,8 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
         int max_intensity = -1; // arbitrary value that is lower than minimum possible intensity, which is 0
         int min_row, min_col, max_row, max_col;
         int saved_intensity;
-
-        i = 0, j = 0;
-        for (; i <= endOfMatrix; ++i ){
+        j = 0;
+        for (i = 0; i <= endOfMatrix; ++i ){
             pixelsImg[i].red = image->data[j];
             pixelsImg[i].green = image->data[j + 1];
             pixelsImg[i].blue = image->data[j + 2];
@@ -341,8 +331,7 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
         pixel p00, p01, p02, p10, p11, p12, p20, p21, p22;
         register pixel_sum col_0 = {}, col_1 = {}, col_2 = {};
         register pixel sum;
-        i = 1, j = 1;
-        for (; i < endOfIteration; ++i) {
+        for (i = 1; i < endOfIteration; ++i) {
             colum = 0;
             p00 = backupOrg[currentColum];
             p01 = backupOrg[currentColum + 1];
@@ -355,7 +344,7 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
             third_2 = third + m;
             third_3 = third_2 + m;
 
-            for (; j < endOfIteration; ++j) {
+            for (j = 1; j < endOfIteration; ++j) {
                 p02 = backupOrg[third];
                 p12 = backupOrg[third_2];
                 p22 = backupOrg[third_3];
@@ -506,10 +495,11 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
         // write result image to file
         writeBMP(image, srcImgpName, filteredBlurRsltImgName);
 
-            // SHARPEN
+        // SHARPEN
 
+        j = 0;
         // iteration on matrix in an optimized way.
-        for (; i <= endOfMatrix; ++i ){
+        for (i = 0; i <= endOfMatrix; ++i ){
             pixelsImg[i].red = image->data[j];
             pixelsImg[i].green = image->data[j + 1];
             pixelsImg[i].blue = image->data[j + 2];
@@ -522,10 +512,9 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
         // avoiding unnessery calculation, using loop unrolling.
         currentColum = 0, currentColumPlus1Row = currentColum + m;
         currentColumPlus2Row = currentColumPlus1Row + m;
-        i = 1, j = 4;
         pixel mid;
 
-        for (; i < endOfIteration; ++i) {
+        for (i = 1; i < endOfIteration; ++i) {
             p00 = backupOrg[currentColum];
             p01 = backupOrg[currentColum + 1];
             p10 = backupOrg[currentColumPlus1Row];
@@ -537,7 +526,7 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
             third_2 = third + m;
             third_3 = third_2 + m;
 
-            for (; j < endOfIteration; j+=2) {
+            for (j = 4; j < endOfIteration; j+=2) {
                 p02 = backupOrg[third];
                 p12 = backupOrg[third_2];
                 p22 = backupOrg[third_3];
@@ -659,4 +648,3 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
     //free(backupOrg);
     //free(pixelsImg);
 }
-
