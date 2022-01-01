@@ -1,9 +1,16 @@
-#include <stdbool.h> 
+#include <stdbool.h>
+#include "stdlib.h"
+#define MIN(a, b) (a < b ? a : b)
+#define MAX(a, b) (a > b ? a : b)
+#define CALC_INDEX(i, j, n) ((i)*(n)+(j))
+#define MN m*n
+#define SIZE MN*sizeof(pixel)
 
 typedef struct {
-   unsigned char red;
-   unsigned char green;
-   unsigned char blue;
+    short int intensity_threshold;
+    unsigned char red;
+    unsigned char green;
+    unsigned char blue;
 } pixel;
 
 typedef struct {
@@ -13,193 +20,7 @@ typedef struct {
     // int num;
 } pixel_sum;
 
-
-/* Compute min and max of two integers, respectively */
-int min(int a, int b) { return (a < b ? a : b); }
-int max(int a, int b) { return (a > b ? a : b); }
-
-int calcIndex(int i, int j, int n) {
-	return ((i)*(n)+(j));
-}
-
-/*
- * initialize_pixel_sum - Initializes all fields of sum to 0
- */
-void initialize_pixel_sum(pixel_sum *sum) {
-	sum->red = sum->green = sum->blue = 0;
-	// sum->num = 0;
-	return;
-}
-
-/*
- * assign_sum_to_pixel - Truncates pixel's new value to match the range [0,255]
- */
-static void assign_sum_to_pixel(pixel *current_pixel, pixel_sum sum, int kernelScale) {
-
-	// divide by kernel's weight
-	sum.red = sum.red / kernelScale;
-	sum.green = sum.green / kernelScale;
-	sum.blue = sum.blue / kernelScale;
-
-	// truncate each pixel's color values to match the range [0,255]
-	current_pixel->red = (unsigned char) (min(max(sum.red, 0), 255));
-	current_pixel->green = (unsigned char) (min(max(sum.green, 0), 255));
-	current_pixel->blue = (unsigned char) (min(max(sum.blue, 0), 255));
-	return;
-}
-
-/*
-* sum_pixels_by_weight - Sums pixel values, scaled by given weight
-*/
-static void sum_pixels_by_weight(pixel_sum *sum, pixel p, int weight) {
-	sum->red += ((int) p.red) * weight;
-	sum->green += ((int) p.green) * weight;
-	sum->blue += ((int) p.blue) * weight;
-	// sum->num++;
-	return;
-}
-
-/*
- *  Applies kernel for pixel at (i,j)
- */
-static pixel applyKernel(int dim, int i, int j, pixel *src, int kernelSize, int kernel[kernelSize][kernelSize], int kernelScale, bool filter) {
-
-	int ii, jj;
-	int currRow, currCol;
-	pixel_sum sum;
-	pixel current_pixel;
-	int min_intensity = 766; // arbitrary value that is higher than maximum possible intensity, which is 255*3=765
-	int max_intensity = -1; // arbitrary value that is lower than minimum possible intensity, which is 0
-	int min_row, min_col, max_row, max_col;
-	pixel loop_pixel;
-
-	initialize_pixel_sum(&sum);
-
-	for(ii = max(i-1, 0); ii <= min(i+1, dim-1); ii++) {
-		for(jj = max(j-1, 0); jj <= min(j+1, dim-1); jj++) {
-
-			int kRow, kCol;
-
-			// compute row index in kernel
-			if (ii < i) {
-				kRow = 0;
-			} else if (ii > i) {
-				kRow = 2;
-			} else {
-				kRow = 1;
-			}
-
-			// compute column index in kernel
-			if (jj < j) {
-				kCol = 0;
-			} else if (jj > j) {
-				kCol = 2;
-			} else {
-				kCol = 1;
-			}
-
-			// apply kernel on pixel at [ii,jj]
-			sum_pixels_by_weight(&sum, src[calcIndex(ii, jj, dim)], kernel[kRow][kCol]);
-		}
-	}
-
-	if (filter) {
-		// find min and max coordinates
-		for(ii = max(i-1, 0); ii <= min(i+1, dim-1); ii++) {
-			for(jj = max(j-1, 0); jj <= min(j+1, dim-1); jj++) {
-				// check if smaller than min or higher than max and update
-				loop_pixel = src[calcIndex(ii, jj, dim)];
-				if ((((int) loop_pixel.red) + ((int) loop_pixel.green) + ((int) loop_pixel.blue)) <= min_intensity) {
-					min_intensity = (((int) loop_pixel.red) + ((int) loop_pixel.green) + ((int) loop_pixel.blue));
-					min_row = ii;
-					min_col = jj;
-				}
-				if ((((int) loop_pixel.red) + ((int) loop_pixel.green) + ((int) loop_pixel.blue)) > max_intensity) {
-					max_intensity = (((int) loop_pixel.red) + ((int) loop_pixel.green) + ((int) loop_pixel.blue));
-					max_row = ii;
-					max_col = jj;
-				}
-			}
-		}
-		// filter out min and max
-		sum_pixels_by_weight(&sum, src[calcIndex(min_row, min_col, dim)], -1);
-		sum_pixels_by_weight(&sum, src[calcIndex(max_row, max_col, dim)], -1);
-	}
-
-	// assign kernel's result to pixel at [i,j]
-	assign_sum_to_pixel(&current_pixel, sum, kernelScale);
-	return current_pixel;
-}
-
-/*
-* Apply the kernel over each pixel.
-* Ignore pixels where the kernel exceeds bounds. These are pixels with row index smaller than kernelSize/2 and/or
-* column index smaller than kernelSize/2
-*/
-void smooth(int dim, pixel *src, pixel *dst, int kernelSize, int kernel[kernelSize][kernelSize], int kernelScale, bool filter) {
-
-	int i, j;
-	for (i = kernelSize / 2 ; i < dim - kernelSize / 2; i++) {
-		for (j =  kernelSize / 2 ; j < dim - kernelSize / 2 ; j++) {
-			dst[calcIndex(i, j, dim)] = applyKernel(dim, i, j, src, kernelSize, kernel, kernelScale, filter);
-		}
-	}
-}
-
-void charsToPixels(Image *charsImg, pixel* pixels) {
-
-	int row, col;
-	for (row = 0 ; row < m ; row++) {
-		for (col = 0 ; col < n ; col++) {
-
-			pixels[row*n + col].red = image->data[3*row*n + 3*col];
-			pixels[row*n + col].green = image->data[3*row*n + 3*col + 1];
-			pixels[row*n + col].blue = image->data[3*row*n + 3*col + 2];
-		}
-	}
-}
-
-void pixelsToChars(pixel* pixels, Image *charsImg) {
-
-	int row, col;
-	for (row = 0 ; row < m ; row++) {
-		for (col = 0 ; col < n ; col++) {
-
-			image->data[3*row*n + 3*col] = pixels[row*n + col].red;
-			image->data[3*row*n + 3*col + 1] = pixels[row*n + col].green;
-			image->data[3*row*n + 3*col + 2] = pixels[row*n + col].blue;
-		}
-	}
-}
-
-void copyPixels(pixel* src, pixel* dst) {
-
-	int row, col;
-	for (row = 0 ; row < m ; row++) {
-		for (col = 0 ; col < n ; col++) {
-
-			dst[row*n + col].red = src[row*n + col].red;
-			dst[row*n + col].green = src[row*n + col].green;
-			dst[row*n + col].blue = src[row*n + col].blue;
-		}
-	}
-}
-
-void doConvolution(Image *image, int kernelSize, int kernel[kernelSize][kernelSize], int kernelScale, bool filter) {
-
-	pixel* pixelsImg = malloc(m*n*sizeof(pixel));
-	pixel* backupOrg = malloc(m*n*sizeof(pixel));
-
-	charsToPixels(image, pixelsImg);
-	copyPixels(pixelsImg, backupOrg);
-
-	smooth(m, backupOrg, pixelsImg, kernelSize, kernel, kernelScale, filter);
-
-	pixelsToChars(pixelsImg, image);
-
-	free(pixelsImg);
-	free(backupOrg);
-}
+extern int m,n;
 
 void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sharpRsltImgName, char* filteredBlurRsltImgName, char* filteredSharpRsltImgName, char flag) {
 
@@ -217,30 +38,648 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
 	*/
 	int sharpKernel[3][3] = {{-1,-1,-1},{-1,9,-1},{-1,-1,-1}};
 
-	if (flag == '1') {	
-		// blur image
-		doConvolution(image, 3, blurKernel, 9, false);
+    pixel* pixelsImg = malloc(SIZE);
+    pixel* backupOrg = malloc(SIZE);
 
-		// write result image to file
-		writeBMP(image, srcImgpName, blurRsltImgName);	
+    // iteration on matrix in an optimized way.
+    register int endOfMatrix = MN - 1, i = 0, j = 0, endOfIteration = m - 1;
 
-		// sharpen the resulting image
-		doConvolution(image, 3, sharpKernel, 1, false);
-		
-		// write result image to file
-		writeBMP(image, srcImgpName, sharpRsltImgName);	
-	} else {
-		// apply extermum filtered kernel to blur image
-		doConvolution(image, 3, blurKernel, 7, true);
+    if (flag == '1') {
+        // iteration on matrix in an optimized way.
+        for (; i <= endOfMatrix; i++ ){
+            pixelsImg[i].red = image->data[j];
+            pixelsImg[i].green = image->data[j + 1];
+            pixelsImg[i].blue = image->data[j + 2];
+            // instead of copyPixels, let's copy them straight away :).
+            backupOrg[i] = pixelsImg[i];
+            // strength reduction - addon instead of multiplication.
+            j += 3;
+        }
 
-		// write result image to file
-		writeBMP(image, srcImgpName, filteredBlurRsltImgName);
+        // let's implement the smooth function:
+        // avoiding unnessery calculation, using loop unrolling.
+        int  currentColum = 0, currentColumPlus1Row = currentColum + m;
+        int currentColumPlus2Row = currentColumPlus1Row + m, third, third_2, third_3;
+        pixel p00, p01, p02, p10, p11, p12, p20, p21, p22;
+        register pixel_sum col_0 = {}, col_1 = {}, col_2 = {};
+        register pixel sum;
+        i = 1, j = 4;
+        for (; i < endOfIteration; ++i) {
+            p00 = backupOrg[currentColum];
+            p01 = backupOrg[currentColum + 1];
+            p10 = backupOrg[currentColumPlus1Row];
+            p11 = backupOrg[currentColumPlus1Row + 1];
+            p20 = backupOrg[currentColumPlus2Row];
+            p21 = backupOrg[currentColumPlus2Row + 1];
 
-		// sharpen the resulting image
-		doConvolution(image, 3, sharpKernel, 1, false);
+            third = currentColum + 2;
+            third_2 = third + m;
+            third_3 = third_2 + m;
 
-		// write result image to file
-		writeBMP(image, srcImgpName, filteredSharpRsltImgName);	
-	}
+            for (; j < endOfIteration; j+=2) {
+                p02 = backupOrg[third];
+                p12 = backupOrg[third_2];
+                p22 = backupOrg[third_3];
+
+                col_0.blue = p00.blue + p10.blue + p20.blue;
+                col_0.green = p00.green + p10.green + p20.green;
+                col_0.red = p00.red + p10.red + p20.red;
+
+                col_1.blue = p01.blue + p11.blue + p21.blue;
+                col_1.green = p01.green + p11.green + p21.green;
+                col_1.red = p01.red + p11.red + p21.red;
+
+                col_2.blue = p02.blue + p12.blue + p22.blue;
+                col_2.green = p02.green + p12.green + p22.green;
+                col_2.red = p02.red + p12.red + p22.red;
+
+                sum.blue = (col_0.blue + col_1.blue + col_2.blue) / 9;
+                sum.green = (col_0.green + col_1.green + col_2.green) / 9;
+                sum.red = (col_0.red + col_1.red + col_2.red) / 9;
+
+                pixelsImg[currentColumPlus1Row] = sum;
+
+                // loop undrolling moving one index to the left.
+                currentColum++, currentColumPlus1Row++, currentColumPlus2Row++;
+                p00 = p01;
+                p01 = p12;
+                p10 = p11;
+                p11 = p12;
+                p20 = p21;
+                p21 = p22;
+
+                third++, third_2++, third_3++;
+                p02 = backupOrg[third];
+                p12 = backupOrg[third_2];
+                p22 = backupOrg[third_3];
+
+                col_0.blue = p00.blue + p10.blue + p20.blue;
+                col_0.green = p00.green + p10.green + p20.green;
+                col_0.red = p00.red + p10.red + p20.red;
+
+                col_1.blue = p01.blue + p11.blue + p21.blue;
+                col_1.green = p01.green + p11.green + p21.green;
+                col_1.red = p01.red + p11.red + p21.red;
+
+                col_2.blue = p02.blue + p12.blue + p22.blue;
+                col_2.green = p02.green + p12.green + p22.green;
+                col_2.red = p02.red + p12.red + p22.red;
+
+                sum.blue = (col_0.blue + col_1.blue + col_2.blue) / 9;
+                sum.green = (col_0.green + col_1.green + col_2.green) / 9;
+                sum.red = (col_0.red + col_1.red + col_2.red) / 9;
+
+                pixelsImg[currentColumPlus1Row] = sum;
+
+                currentColum++, currentColumPlus1Row++, currentColumPlus2Row++;
+                p00 = p01;
+                p01 = p12;
+                p10 = p11;
+                p11 = p12;
+                p20 = p21;
+                p21 = p22;
+                third++, third_2++, third_3++;
+            }
+
+            // time to handle the reminder - %2 == 1
+            if (currentColum != endOfIteration - 1){
+                p02 = backupOrg[third];
+                p12 = backupOrg[third_2];
+                p22 = backupOrg[third_3];
+
+                col_0.blue = p00.blue + p10.blue + p20.blue;
+                col_0.green = p00.green + p10.green + p20.green;
+                col_0.red = p00.red + p10.red + p20.red;
+
+                col_1.blue = p01.blue + p11.blue + p21.blue;
+                col_1.green = p01.green + p11.green + p21.green;
+                col_1.red = p01.red + p11.red + p21.red;
+
+                col_2.blue = p02.blue + p12.blue + p22.blue;
+                col_2.green = p02.green + p12.green + p22.green;
+                col_2.red = p02.red + p12.red + p22.red;
+
+                sum.blue = (col_0.blue + col_1.blue + col_2.blue) / 9;
+                sum.green = (col_0.green + col_1.green + col_2.green) / 9;
+                sum.red = (col_0.red + col_1.red + col_2.red) / 9;
+
+                pixelsImg[currentColumPlus1Row] = sum;
+            }
+            currentColum+=m, currentColumPlus1Row+=m, currentColumPlus2Row+=m;
+
+        }
+        // replacement for the function pixelsToChars, set image-> accordingly.
+        image->data = (char *)pixelsImg;
+
+
+
+
+
+        // write result image to file
+        writeBMP(image, srcImgpName, blurRsltImgName);
+
+
+
+
+        // sharpen the resulting image
+
+        // iteration on matrix in an optimized way.
+        for (; i <= endOfMatrix; i++ ){
+            pixelsImg[i].red = image->data[j];
+            pixelsImg[i].green = image->data[j + 1];
+            pixelsImg[i].blue = image->data[j + 2];
+            // instead of copyPixels, let's copy them straight away :).
+            backupOrg[i] = pixelsImg[i];
+            // strength reduction - addon instead of multiplication.
+            j += 3;
+        }
+
+        // avoiding unnessery calculation, using loop unrolling.
+        currentColum = 0, currentColumPlus1Row = currentColum + m;
+        currentColumPlus2Row = currentColumPlus1Row + m;
+        i = 1, j = 4;
+        pixel mid;
+
+        for (; i < endOfIteration; ++i) {
+            p00 = backupOrg[currentColum];
+            p01 = backupOrg[currentColum + 1];
+            p10 = backupOrg[currentColumPlus1Row];
+            mid = p11 = backupOrg[currentColumPlus1Row + 1];
+            p20 = backupOrg[currentColumPlus2Row];
+            p21 = backupOrg[currentColumPlus2Row + 1];
+
+            third = currentColum + 2;
+            third_2 = third + m;
+            third_3 = third_2 + m;
+
+            for (; j < endOfIteration; j+=2) {
+                p02 = backupOrg[third];
+                p12 = backupOrg[third_2];
+                p22 = backupOrg[third_3];
+
+                col_0.blue = p00.blue + p10.blue + p20.blue;
+                col_0.green = p00.green + p10.green + p20.green;
+                col_0.red = p00.red + p10.red + p20.red;
+
+                col_1.blue = p01.blue + p11.blue + p21.blue;
+                col_1.green = p01.green + p11.green + p21.green;
+                col_1.red = p01.red + p11.red + p21.red;
+
+                col_2.blue = p02.blue + p12.blue + p22.blue;
+                col_2.green = p02.green + p12.green + p22.green;
+                col_2.red = p02.red + p12.red + p22.red;
+
+                sum.blue = ((mid.blue << 3) + (mid.blue << 1)) - (col_0.blue + col_1.blue + col_2.blue);
+                sum.blue = sum.blue > 0 ? sum.blue : 0;
+                sum.blue = sum.blue < 255 ? sum.blue : 255;
+
+                sum.green = ((mid.green << 3) + (mid.green << 1)) - (col_0.green + col_1.green + col_2.green);
+                sum.green = sum.green > 0 ? sum.green : 0;
+                sum.green = sum.green < 255 ? sum.green : 255;
+
+                sum.red = ((mid.red << 3) + (mid.red << 1)) - (col_0.red + col_1.red + col_2.red);
+                sum.red = sum.red > 0 ? sum.red : 0;
+                sum.red = sum.red < 255 ? sum.red : 255;
+
+                pixelsImg[currentColumPlus1Row] = sum;
+
+                // loop undrolling moving one index to the left.
+                currentColum++, currentColumPlus1Row++, currentColumPlus2Row++;
+                p00 = p01;
+                p01 = p12;
+                p10 = p11;
+                p11 = p12;
+                p20 = p21;
+                p21 = p22;
+
+                third++, third_2++, third_3++;
+                p02 = backupOrg[third];
+                p12 = backupOrg[third_2];
+                p22 = backupOrg[third_3];
+
+                col_0.blue = p00.blue + p10.blue + p20.blue;
+                col_0.green = p00.green + p10.green + p20.green;
+                col_0.red = p00.red + p10.red + p20.red;
+
+                col_1.blue = p01.blue + p11.blue + p21.blue;
+                col_1.green = p01.green + p11.green + p21.green;
+                col_1.red = p01.red + p11.red + p21.red;
+
+                col_2.blue = p02.blue + p12.blue + p22.blue;
+                col_2.green = p02.green + p12.green + p22.green;
+                col_2.red = p02.red + p12.red + p22.red;
+
+                sum.blue = ((mid.blue << 3) + (mid.blue << 1)) - (col_0.blue + col_1.blue + col_2.blue);
+                sum.blue = sum.blue > 0 ? sum.blue : 0;
+                sum.blue = sum.blue < 255 ? sum.blue : 255;
+
+                sum.green = ((mid.green << 3) + (mid.green << 1)) - (col_0.green + col_1.green + col_2.green);
+                sum.green = sum.green > 0 ? sum.green : 0;
+                sum.green = sum.green < 255 ? sum.green : 255;
+
+                sum.red = ((mid.red << 3) + (mid.red << 1)) - (col_0.red + col_1.red + col_2.red);
+                sum.red = sum.red > 0 ? sum.red : 0;
+                sum.red = sum.red < 255 ? sum.red : 255;
+
+                pixelsImg[currentColumPlus1Row] = sum;
+
+                currentColum++, currentColumPlus1Row++, currentColumPlus2Row++;
+                p00 = p01;
+                p01 = p12;
+                p10 = p11;
+                p11 = p12;
+                p20 = p21;
+                p21 = p22;
+                third++, third_2++, third_3++;
+            }
+
+            // time to handle the reminder - %2 == 1
+            if (currentColum != endOfIteration - 1){
+                p02 = backupOrg[third];
+                p12 = backupOrg[third_2];
+                p22 = backupOrg[third_3];
+
+                col_0.blue = p00.blue + p10.blue + p20.blue;
+                col_0.green = p00.green + p10.green + p20.green;
+                col_0.red = p00.red + p10.red + p20.red;
+
+                col_1.blue = p01.blue + p11.blue + p21.blue;
+                col_1.green = p01.green + p11.green + p21.green;
+                col_1.red = p01.red + p11.red + p21.red;
+
+                col_2.blue = p02.blue + p12.blue + p22.blue;
+                col_2.green = p02.green + p12.green + p22.green;
+                col_2.red = p02.red + p12.red + p22.red;
+
+                sum.blue = ((mid.blue << 3) + (mid.blue << 1)) - (col_0.blue + col_1.blue + col_2.blue);
+                sum.blue = sum.blue > 0 ? sum.blue : 0;
+                sum.blue = sum.blue < 255 ? sum.blue : 255;
+
+                sum.green = ((mid.green << 3) + (mid.green << 1)) - (col_0.green + col_1.green + col_2.green);
+                sum.green = sum.green > 0 ? sum.green : 0;
+                sum.green = sum.green < 255 ? sum.green : 255;
+
+                sum.red = ((mid.red << 3) + (mid.red << 1)) - (col_0.red + col_1.red + col_2.red);
+                sum.red = sum.red > 0 ? sum.red : 0;
+                sum.red = sum.red < 255 ? sum.red : 255;
+
+                pixelsImg[currentColumPlus1Row] = sum;
+            }
+            currentColum+=m, currentColumPlus1Row+=m, currentColumPlus2Row+=m;
+        }
+
+
+        // replacement for the function pixelsToChars, set image-> accordingly.
+        image->data = (char *)pixelsImg;
+
+
+        // write result image to file
+        writeBMP(image, srcImgpName, sharpRsltImgName);
+    }
+
+    else { // flag != '1' - meaning an intensity will be applied
+        int min_intensity = 766; // arbitrary value that is higher than maximum possible intensity, which is 255*3=765
+        int max_intensity = -1; // arbitrary value that is lower than minimum possible intensity, which is 0
+        int min_row, min_col, max_row, max_col;
+        int saved_intensity;
+
+        i = 0, j = 0;
+        for (; i <= endOfMatrix; i++ ){
+            pixelsImg[i].red = image->data[j];
+            pixelsImg[i].green = image->data[j + 1];
+            pixelsImg[i].blue = image->data[j + 2];
+            // if filter is true - meaning we will be needing that intensity later on.
+            pixelsImg->intensity_threshold += pixelsImg[i].red + pixelsImg[i].green + pixelsImg[i].blue;
+            // instead of copyPixels, let's copy them straight away :).
+            backupOrg[i] = pixelsImg[i];
+            // strength reduction - addon instead of multiplication.
+            j += 3;
+        }
+
+        // let's implement the smooth function:
+        // avoiding unnessery calculation, using loop unrolling.
+        int  currentColum = 0, currentColumPlus1Row = currentColum + m;
+        int currentColumPlus2Row = currentColumPlus1Row + m, third, third_2, third_3;
+        int colum = 0,row = 0;
+        pixel p00, p01, p02, p10, p11, p12, p20, p21, p22;
+        register pixel_sum col_0 = {}, col_1 = {}, col_2 = {};
+        register pixel sum;
+        i = 1, j = 1;
+        for (; i < endOfIteration; ++i) {
+            colum = 0;
+            p00 = backupOrg[currentColum];
+            p01 = backupOrg[currentColum + 1];
+            p10 = backupOrg[currentColumPlus1Row];
+            p11 = backupOrg[currentColumPlus1Row + 1];
+            p20 = backupOrg[currentColumPlus2Row];
+            p21 = backupOrg[currentColumPlus2Row + 1];
+
+            third = currentColum + 2;
+            third_2 = third + m;
+            third_3 = third_2 + m;
+
+            for (; j < endOfIteration; ++j) {
+                p02 = backupOrg[third];
+                p12 = backupOrg[third_2];
+                p22 = backupOrg[third_3];
+
+                col_0.blue = p00.blue + p10.blue + p20.blue;
+                col_0.green = p00.green + p10.green + p20.green;
+                col_0.red = p00.red + p10.red + p20.red;
+
+                col_1.blue = p01.blue + p11.blue + p21.blue;
+                col_1.green = p01.green + p11.green + p21.green;
+                col_1.red = p01.red + p11.red + p21.red;
+
+                col_2.blue = p02.blue + p12.blue + p22.blue;
+                col_2.green = p02.green + p12.green + p22.green;
+                col_2.red = p02.red + p12.red + p22.red;
+
+                sum.blue = (col_0.blue + col_1.blue + col_2.blue);
+                sum.green = (col_0.green + col_1.green + col_2.green);
+                sum.red = (col_0.red + col_1.red + col_2.red);
+
+                saved_intensity = backupOrg[currentColum].intensity_threshold;
+                if (saved_intensity <= min_intensity){
+                    min_row = row;
+                    min_col = colum;
+                    min_intensity = saved_intensity;
+                }
+
+                if (saved_intensity > max_intensity){
+                    max_row = row;
+                    max_col = colum;
+                    max_intensity = saved_intensity;
+                }
+                saved_intensity = backupOrg[currentColum + 1].intensity_threshold;
+                if (saved_intensity <= min_intensity){
+                    min_row = row;
+                    min_col = colum + 1;
+                    min_intensity = saved_intensity;
+                }
+
+                if (saved_intensity > max_intensity){
+                    max_row = row;
+                    max_col = colum + 1;
+                    max_intensity = saved_intensity;
+                }
+                saved_intensity = backupOrg[currentColum + 2].intensity_threshold;
+                if (saved_intensity <= min_intensity){
+                    min_row = row;
+                    min_col = colum + 2;
+                    min_intensity = saved_intensity;
+                }
+
+                if (saved_intensity > max_intensity){
+                    max_row = row;
+                    max_col = colum + 2;
+                    max_intensity = saved_intensity;
+                }
+
+                saved_intensity = backupOrg[currentColumPlus1Row].intensity_threshold;
+                if (saved_intensity <= min_intensity){
+                    min_row = row + 1;
+                    min_col = colum;
+                    min_intensity = saved_intensity;
+                }
+
+                if (saved_intensity > max_intensity){
+                    max_row = row + 1;
+                    max_col = colum;
+                    max_intensity = saved_intensity;
+                }
+                saved_intensity = backupOrg[currentColumPlus1Row + 1].intensity_threshold;
+                if (saved_intensity <= min_intensity){
+                    min_row = row + 1;
+                    min_col = colum + 1;
+                    min_intensity = saved_intensity;
+                }
+
+                if (saved_intensity > max_intensity){
+                    max_row = row + 1;
+                    max_col = colum + 1;
+                    max_intensity = saved_intensity;
+                }
+                saved_intensity = backupOrg[currentColumPlus1Row + 2].intensity_threshold;
+                if (saved_intensity <= min_intensity){
+                    min_row = row + 1;
+                    min_col = colum + 2;
+                    min_intensity = saved_intensity;
+                }
+
+                if (saved_intensity > max_intensity){
+                    max_row = row + 1;
+                    max_col = colum + 2;
+                    max_intensity = saved_intensity;
+                }
+
+                saved_intensity = backupOrg[currentColumPlus2Row].intensity_threshold;
+                if (saved_intensity <= min_intensity){
+                    min_row = row + 2;
+                    min_col = colum;
+                    min_intensity = saved_intensity;
+                }
+
+                if (saved_intensity > max_intensity){
+                    max_row = row + 2;
+                    max_col = colum;
+                    max_intensity = saved_intensity;
+                }
+                saved_intensity = backupOrg[currentColumPlus2Row + 1].intensity_threshold;
+                if (saved_intensity <= min_intensity){
+                    min_row = row + 2;
+                    min_col = colum + 1;
+                    min_intensity = saved_intensity;
+                }
+
+                if (saved_intensity > max_intensity){
+                    max_row = row + 2;
+                    max_col = colum  + 1;
+                    max_intensity = saved_intensity;
+                }
+                saved_intensity = backupOrg[currentColumPlus2Row + 2].intensity_threshold;
+                if (saved_intensity <= min_intensity){
+                    min_row = row + 2;
+                    min_col = colum + 2;
+                    min_intensity = saved_intensity;
+                }
+
+                if (saved_intensity > max_intensity){
+                    max_row = row + 2;
+                    max_col = colum + 2;
+                    max_intensity = saved_intensity;
+                }
+                pixel max_value = backupOrg[max_row + max_col], min_value = backupOrg[min_row + min_col];
+                sum.blue -= (min_value.blue + max_value.blue);
+                sum.red -= (min_value.red + max_value.red);
+                sum.green -= (min_value.green + max_value.green);
+
+                sum.blue /= 7;
+                sum.green /=7;
+                sum.red /=7;
+                pixelsImg[currentColumPlus1Row] = sum;
+
+                colum++;
+            }
+            row+= m;
+        }
+
+        // set the image's data to be dst
+        image->data = (char *)dst;
+        // write result image to file
+        writeBMP(image, srcImgpName, filteredBlurRsltImgName);
+
+            // SHARPEN
+
+        // iteration on matrix in an optimized way.
+        for (; i <= endOfMatrix; i++ ){
+            pixelsImg[i].red = image->data[j];
+            pixelsImg[i].green = image->data[j + 1];
+            pixelsImg[i].blue = image->data[j + 2];
+            // instead of copyPixels, let's copy them straight away :).
+            backupOrg[i] = pixelsImg[i];
+            // strength reduction - addon instead of multiplication.
+            j += 3;
+        }
+
+        // avoiding unnessery calculation, using loop unrolling.
+        currentColum = 0, currentColumPlus1Row = currentColum + m;
+        currentColumPlus2Row = currentColumPlus1Row + m;
+        i = 1, j = 4;
+        pixel mid;
+
+        for (; i < endOfIteration; ++i) {
+            p00 = backupOrg[currentColum];
+            p01 = backupOrg[currentColum + 1];
+            p10 = backupOrg[currentColumPlus1Row];
+            mid = p11 = backupOrg[currentColumPlus1Row + 1];
+            p20 = backupOrg[currentColumPlus2Row];
+            p21 = backupOrg[currentColumPlus2Row + 1];
+
+            third = currentColum + 2;
+            third_2 = third + m;
+            third_3 = third_2 + m;
+
+            for (; j < endOfIteration; j+=2) {
+                p02 = backupOrg[third];
+                p12 = backupOrg[third_2];
+                p22 = backupOrg[third_3];
+
+                col_0.blue = p00.blue + p10.blue + p20.blue;
+                col_0.green = p00.green + p10.green + p20.green;
+                col_0.red = p00.red + p10.red + p20.red;
+
+                col_1.blue = p01.blue + p11.blue + p21.blue;
+                col_1.green = p01.green + p11.green + p21.green;
+                col_1.red = p01.red + p11.red + p21.red;
+
+                col_2.blue = p02.blue + p12.blue + p22.blue;
+                col_2.green = p02.green + p12.green + p22.green;
+                col_2.red = p02.red + p12.red + p22.red;
+
+                sum.blue = ((mid.blue << 3) + (mid.blue << 1)) - (col_0.blue + col_1.blue + col_2.blue);
+                sum.blue = sum.blue > 0 ? sum.blue : 0;
+                sum.blue = sum.blue < 255 ? sum.blue : 255;
+
+                sum.green = ((mid.green << 3) + (mid.green << 1)) - (col_0.green + col_1.green + col_2.green);
+                sum.green = sum.green > 0 ? sum.green : 0;
+                sum.green = sum.green < 255 ? sum.green : 255;
+
+                sum.red = ((mid.red << 3) + (mid.red << 1)) - (col_0.red + col_1.red + col_2.red);
+                sum.red = sum.red > 0 ? sum.red : 0;
+                sum.red = sum.red < 255 ? sum.red : 255;
+
+                pixelsImg[currentColumPlus1Row] = sum;
+
+                // loop undrolling moving one index to the left.
+                currentColum++, currentColumPlus1Row++, currentColumPlus2Row++;
+                p00 = p01;
+                p01 = p12;
+                p10 = p11;
+                p11 = p12;
+                p20 = p21;
+                p21 = p22;
+
+                third++, third_2++, third_3++;
+                p02 = backupOrg[third];
+                p12 = backupOrg[third_2];
+                p22 = backupOrg[third_3];
+
+                col_0.blue = p00.blue + p10.blue + p20.blue;
+                col_0.green = p00.green + p10.green + p20.green;
+                col_0.red = p00.red + p10.red + p20.red;
+
+                col_1.blue = p01.blue + p11.blue + p21.blue;
+                col_1.green = p01.green + p11.green + p21.green;
+                col_1.red = p01.red + p11.red + p21.red;
+
+                col_2.blue = p02.blue + p12.blue + p22.blue;
+                col_2.green = p02.green + p12.green + p22.green;
+                col_2.red = p02.red + p12.red + p22.red;
+
+                sum.blue = ((mid.blue << 3) + (mid.blue << 1)) - (col_0.blue + col_1.blue + col_2.blue);
+                sum.blue = sum.blue > 0 ? sum.blue : 0;
+                sum.blue = sum.blue < 255 ? sum.blue : 255;
+
+                sum.green = ((mid.green << 3) + (mid.green << 1)) - (col_0.green + col_1.green + col_2.green);
+                sum.green = sum.green > 0 ? sum.green : 0;
+                sum.green = sum.green < 255 ? sum.green : 255;
+
+                sum.red = ((mid.red << 3) + (mid.red << 1)) - (col_0.red + col_1.red + col_2.red);
+                sum.red = sum.red > 0 ? sum.red : 0;
+                sum.red = sum.red < 255 ? sum.red : 255;
+
+                pixelsImg[currentColumPlus1Row] = sum;
+
+                currentColum++, currentColumPlus1Row++, currentColumPlus2Row++;
+                p00 = p01;
+                p01 = p12;
+                p10 = p11;
+                p11 = p12;
+                p20 = p21;
+                p21 = p22;
+                third++, third_2++, third_3++;
+            }
+
+            // time to handle the reminder - %2 == 1
+            if (currentColum != endOfIteration - 1){
+                p02 = backupOrg[third];
+                p12 = backupOrg[third_2];
+                p22 = backupOrg[third_3];
+
+                col_0.blue = p00.blue + p10.blue + p20.blue;
+                col_0.green = p00.green + p10.green + p20.green;
+                col_0.red = p00.red + p10.red + p20.red;
+
+                col_1.blue = p01.blue + p11.blue + p21.blue;
+                col_1.green = p01.green + p11.green + p21.green;
+                col_1.red = p01.red + p11.red + p21.red;
+
+                col_2.blue = p02.blue + p12.blue + p22.blue;
+                col_2.green = p02.green + p12.green + p22.green;
+                col_2.red = p02.red + p12.red + p22.red;
+
+                sum.blue = ((mid.blue << 3) + (mid.blue << 1)) - (col_0.blue + col_1.blue + col_2.blue);
+                sum.blue = sum.blue > 0 ? sum.blue : 0;
+                sum.blue = sum.blue < 255 ? sum.blue : 255;
+
+                sum.green = ((mid.green << 3) + (mid.green << 1)) - (col_0.green + col_1.green + col_2.green);
+                sum.green = sum.green > 0 ? sum.green : 0;
+                sum.green = sum.green < 255 ? sum.green : 255;
+
+                sum.red = ((mid.red << 3) + (mid.red << 1)) - (col_0.red + col_1.red + col_2.red);
+                sum.red = sum.red > 0 ? sum.red : 0;
+                sum.red = sum.red < 255 ? sum.red : 255;
+
+                pixelsImg[currentColumPlus1Row] = sum;
+            }
+            currentColum+=m, currentColumPlus1Row+=m, currentColumPlus2Row+=m;
+        }
+
+        // write result image to file
+        writeBMP(image, srcImgpName, filteredSharpRsltImgName);
+    }
+    free(backupOrg);
+    free(pixelsImg);
 }
 
