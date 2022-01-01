@@ -1,8 +1,5 @@
 #include <stdbool.h>
 #include "stdlib.h"
-#define MIN(a, b) (a < b ? a : b)
-#define MAX(a, b) (a > b ? a : b)
-#define CALC_INDEX(i, j, n) ((i)*(n)+(j))
 #define MN m*n
 #define SIZE MN*sizeof(pixel)
 
@@ -19,8 +16,6 @@ typedef struct {
     int blue;
     // int num;
 } pixel_sum;
-
-extern int m,n;
 
 void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sharpRsltImgName, char* filteredBlurRsltImgName, char* filteredSharpRsltImgName, char flag) {
 
@@ -525,7 +520,7 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
         }
 
         // set the image's data to be dst
-        image->data = (char *)dst;
+        image->data = (char *)pixelsImg;
         // write result image to file
         writeBMP(image, srcImgpName, filteredBlurRsltImgName);
 
