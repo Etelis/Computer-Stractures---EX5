@@ -53,13 +53,13 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
         }
         // let's implement the smooth function:
         // avoiding unnessery calculation, using loop unrolling.
-        register int  currentColum, currentColumPlus1Row;
-        register int currentColumPlus2Row, third, third_2, third_3;
+        register int  currentColum, currentColumPlus1Row, row = 0;
+        register int currentColumPlus2Row;
         pixel p00, p01, p02, p10, p11, p12, p20, p21, p22;
         register pixel_sum col_0 = {}, col_1 = {}, col_2 = {};
         register pixel sum;
         for (i = 1; i < endOfIteration; ++i) {
-            currentColum = (i-1) * m;
+            currentColum = row;
             currentColumPlus1Row = currentColum + m;
             currentColumPlus2Row = currentColumPlus1Row + m;
 
@@ -78,14 +78,10 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
             col_1.green = p01.green + p11.green + p21.green;
             col_1.red = p01.red + p11.red + p21.red;
 
-            third = currentColum + 2;
-            third_2 = third + m;
-            third_3 = third_2 + m;
-
             for (j = 4; j <= endOfIteration; j+=2) {
-                p02 = backupOrg[third];
-                p12 = backupOrg[third_2];
-                p22 = backupOrg[third_3];
+                p02 = backupOrg[currentColum + 2];
+                p12 = backupOrg[currentColumPlus1Row + 2];
+                p22 = backupOrg[currentColumPlus2Row + 2];
 
                 col_2.blue = p02.blue + p12.blue + p22.blue;
                 col_2.green = p02.green + p12.green + p22.green;
@@ -102,11 +98,9 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
 
                 // loop undrolling moving one index to the right.
                 currentColum++, currentColumPlus1Row++, currentColumPlus2Row++;
-
-                third++, third_2++, third_3++;
-                p02 = backupOrg[third];
-                p12 = backupOrg[third_2];
-                p22 = backupOrg[third_3];
+                p02 = backupOrg[currentColum + 2];
+                p12 = backupOrg[currentColumPlus1Row + 2];
+                p22 = backupOrg[currentColumPlus2Row + 2];
 
                 col_2.blue = p02.blue + p12.blue + p22.blue;
                 col_2.green = p02.green + p12.green + p22.green;
@@ -121,15 +115,13 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
                 col_1 = col_2;
 
                 currentColum++, currentColumPlus1Row++, currentColumPlus2Row++;
-
-                third++, third_2++, third_3++;
             }
 
             // time to handle the reminder - %2 == 1
             if (currentColum != endOfIteration){
-                p02 = backupOrg[third];
-                p12 = backupOrg[third_2];
-                p22 = backupOrg[third_3];
+                p02 = backupOrg[currentColum + 2];
+                p12 = backupOrg[currentColumPlus1Row + 2];
+                p22 = backupOrg[currentColumPlus2Row + 2];
 
                 col_2.blue = p02.blue + p12.blue + p22.blue;
                 col_2.green = p02.green + p12.green + p22.green;
@@ -141,7 +133,9 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
 
                 pixelsImg[currentColumPlus1Row + 1] = sum;
             }
+            row+=m;
         }
+
         j = 0;
         // replacement for the function pixelsToChars, set image-> accordingly.
         for (i = 0; i <= endOfMatrix; ++i ){
@@ -169,19 +163,16 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
             pixelsImg[i].red = image->data[j];
             pixelsImg[i].green = image->data[j + 1];
             pixelsImg[i].blue = image->data[j + 2];
-            // instead of copyPixels, let's copy them straight away :).
-            backupOrg[i] = pixelsImg[i];
             // strength reduction - addon instead of multiplication.
             j += 3;
         }
 
         // avoiding unnessery calculation, using loop unrolling.
-        currentColum = 0, currentColumPlus1Row = currentColum + m;
-        currentColumPlus2Row = currentColumPlus1Row + m;
         pixel mid;
+        row = 0;
 
         for (i = 1; i < endOfIteration; ++i) {
-            currentColum = (i-1);
+            currentColum = row;
             currentColumPlus1Row = currentColum + m;
             currentColumPlus2Row = currentColumPlus1Row + m;
 
@@ -200,14 +191,10 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
             col_1.green = p01.green + p11.green + p21.green;
             col_1.red = p01.red + p11.red + p21.red;
 
-            third = currentColum + 2;
-            third_2 = third + m;
-            third_3 = third_2 + m;
-
-            for (j = 4; j < endOfIteration; j+=2) {
-                p02 = backupOrg[third];
-                p12 = backupOrg[third_2];
-                p22 = backupOrg[third_3];
+            for (j = 4; j <= endOfIteration; j+=2) {
+                p02 = backupOrg[currentColum + 2];
+                p12 = backupOrg[currentColumPlus1Row + 2];
+                p22 = backupOrg[currentColumPlus2Row + 2];
 
                 col_2.blue = p02.blue + p12.blue + p22.blue;
                 col_2.green = p02.green + p12.green + p22.green;
@@ -226,18 +213,17 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
                 sum.red = sum.red < 255 ? sum.red : 255;
 
                 pixelsImg[currentColumPlus1Row + 1] = sum;
-
+                currentColum++, currentColumPlus1Row++, currentColumPlus2Row++;
+                mid = backupOrg[currentColumPlus1Row + 1];
                 col_0 = col_1;
                 col_1 = col_2;
 
                 // loop undrolling moving one index to the right.
-                currentColum++, currentColumPlus1Row++, currentColumPlus2Row++;
 
-                third++, third_2++, third_3++;
 
-                p02 = backupOrg[third];
-                p12 = backupOrg[third_2];
-                p22 = backupOrg[third_3];
+                p02 = backupOrg[currentColum + 2];
+                p12 = backupOrg[currentColumPlus1Row + 2];
+                p22 = backupOrg[currentColumPlus2Row + 2];
 
                 col_2.blue = p02.blue + p12.blue + p22.blue;
                 col_2.green = p02.green + p12.green + p22.green;
@@ -256,21 +242,17 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
                 sum.red = sum.red < 255 ? sum.red : 255;
 
                 pixelsImg[currentColumPlus1Row + 1] = sum;
-
+                currentColum++, currentColumPlus1Row++, currentColumPlus2Row++;
+                mid = backupOrg[currentColumPlus1Row + 1];
                 col_0 = col_1;
                 col_1 = col_2;
-
-                // loop undrolling moving one index to the right.
-                currentColum++, currentColumPlus1Row++, currentColumPlus2Row++;
-
-                third++, third_2++, third_3++;
             }
 
             // time to handle the reminder - %2 == 1
-            if (currentColum != endOfIteration - 1){
-                p02 = backupOrg[third];
-                p12 = backupOrg[third_2];
-                p22 = backupOrg[third_3];
+            if (currentColum != endOfIteration){
+                p02 = backupOrg[currentColum + 2];
+                p12 = backupOrg[currentColumPlus1Row + 2];
+                p22 = backupOrg[currentColumPlus2Row + 2];
 
                 col_2.blue = p02.blue + p12.blue + p22.blue;
                 col_2.green = p02.green + p12.green + p22.green;
@@ -290,6 +272,7 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
 
                 pixelsImg[currentColumPlus1Row + 1] = sum;
             }
+            row+=m;
         }
 
         j = 0;
@@ -326,7 +309,7 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
         // let's implement the smooth function:
         // avoiding unnessery calculation, using loop unrolling.
         int  currentColum = 0, currentColumPlus1Row = currentColum + m;
-        int currentColumPlus2Row = currentColumPlus1Row + m, third, third_2, third_3;
+        int currentColumPlus2Row = currentColumPlus1Row + m;
         int colum = 0,row = 0;
         pixel p00, p01, p02, p10, p11, p12, p20, p21, p22;
         register pixel_sum col_0 = {}, col_1 = {}, col_2 = {};
@@ -340,22 +323,18 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
             p20 = backupOrg[currentColumPlus2Row];
             p21 = backupOrg[currentColumPlus2Row + 1];
 
-            third = currentColum + 2;
-            third_2 = third + m;
-            third_3 = third_2 + m;
+            col_0.blue = p00.blue + p10.blue + p20.blue;
+            col_0.green = p00.green + p10.green + p20.green;
+            col_0.red = p00.red + p10.red + p20.red;
+
+            col_1.blue = p01.blue + p11.blue + p21.blue;
+            col_1.green = p01.green + p11.green + p21.green;
+            col_1.red = p01.red + p11.red + p21.red;
 
             for (j = 1; j < endOfIteration; ++j) {
-                p02 = backupOrg[third];
-                p12 = backupOrg[third_2];
-                p22 = backupOrg[third_3];
-
-                col_0.blue = p00.blue + p10.blue + p20.blue;
-                col_0.green = p00.green + p10.green + p20.green;
-                col_0.red = p00.red + p10.red + p20.red;
-
-                col_1.blue = p01.blue + p11.blue + p21.blue;
-                col_1.green = p01.green + p11.green + p21.green;
-                col_1.red = p01.red + p11.red + p21.red;
+                p02 = backupOrg[currentColum + 2];
+                p12 = backupOrg[currentColumPlus1Row + 2];
+                p22 = backupOrg[currentColumPlus2Row + 2];
 
                 col_2.blue = p02.blue + p12.blue + p22.blue;
                 col_2.green = p02.green + p12.green + p22.green;
@@ -485,6 +464,10 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
                 sum.red /=7;
                 pixelsImg[currentColumPlus1Row] = sum;
 
+                currentColum++, currentColumPlus1Row++, currentColumPlus2Row++;
+                col_0 = col_1;
+                col_1 = col_2;
+
                 colum++;
             }
             row+= m;
@@ -522,14 +505,11 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
             p20 = backupOrg[currentColumPlus2Row];
             p21 = backupOrg[currentColumPlus2Row + 1];
 
-            third = currentColum + 2;
-            third_2 = third + m;
-            third_3 = third_2 + m;
 
             for (j = 4; j < endOfIteration; j+=2) {
-                p02 = backupOrg[third];
-                p12 = backupOrg[third_2];
-                p22 = backupOrg[third_3];
+                p02 = backupOrg[currentColum + 2];
+                p12 = backupOrg[currentColumPlus1Row + 2];
+                p22 = backupOrg[currentColumPlus2Row + 2];
 
                 col_0.blue = p00.blue + p10.blue + p20.blue;
                 col_0.green = p00.green + p10.green + p20.green;
@@ -566,10 +546,9 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
                 p20 = p21;
                 p21 = p22;
 
-                third++, third_2++, third_3++;
-                p02 = backupOrg[third];
-                p12 = backupOrg[third_2];
-                p22 = backupOrg[third_3];
+                p02 = backupOrg[currentColum + 2];
+                p12 = backupOrg[currentColumPlus1Row + 2];
+                p22 = backupOrg[currentColumPlus2Row + 2];
 
                 col_0.blue = p00.blue + p10.blue + p20.blue;
                 col_0.green = p00.green + p10.green + p20.green;
@@ -604,14 +583,14 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
                 p11 = p12;
                 p20 = p21;
                 p21 = p22;
-                third++, third_2++, third_3++;
+
             }
 
             // time to handle the reminder - %2 == 1
             if (currentColum != endOfIteration - 1){
-                p02 = backupOrg[third];
-                p12 = backupOrg[third_2];
-                p22 = backupOrg[third_3];
+                p02 = backupOrg[currentColum + 2];
+                p12 = backupOrg[currentColumPlus1Row + 2];
+                p22 = backupOrg[currentColumPlus2Row + 2];
 
                 col_0.blue = p00.blue + p10.blue + p20.blue;
                 col_0.green = p00.green + p10.green + p20.green;
