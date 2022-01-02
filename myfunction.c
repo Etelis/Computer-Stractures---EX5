@@ -157,19 +157,10 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
 
         // sharpen the resulting image
 
-        j = 0;
-        // iteration on matrix in an optimized way.
-        for (i = 0; i <= endOfMatrix; ++i ){
-            pixelsImg[i].red = image->data[j];
-            pixelsImg[i].green = image->data[j + 1];
-            pixelsImg[i].blue = image->data[j + 2];
-            // strength reduction - addon instead of multiplication.
-            j += 3;
-        }
-
         // avoiding unnessery calculation, using loop unrolling.
         pixel mid;
         row = 0;
+        pixel_sum sum_clr;
 
         for (i = 1; i < endOfIteration; ++i) {
             currentColum = row;
@@ -200,23 +191,26 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
                 col_2.green = p02.green + p12.green + p22.green;
                 col_2.red = p02.red + p12.red + p22.red;
 
-                sum.blue = ((mid.blue << 3) + (mid.blue << 1)) - (col_0.blue + col_1.blue + col_2.blue);
-                sum.blue = sum.blue > 0 ? sum.blue : 0;
-                sum.blue = sum.blue < 255 ? sum.blue : 255;
+                sum_clr.blue = ((mid.blue << 3) + (mid.blue << 1)) - (col_0.blue + col_1.blue + col_2.blue);
+                sum_clr.blue = (sum_clr.blue > 0 ? sum_clr.blue : 0);
+                sum_clr.blue = (sum_clr.blue < 255 ? sum_clr.blue : 255);
+                sum.blue = sum_clr.blue;
 
-                sum.green = ((mid.green << 3) + (mid.green << 1)) - (col_0.green + col_1.green + col_2.green);
-                sum.green = sum.green > 0 ? sum.green : 0;
-                sum.green = sum.green < 255 ? sum.green : 255;
+                sum_clr.green = ((mid.green << 3) + (mid.green << 1)) - (col_0.green + col_1.green + col_2.green);
+                sum_clr.green = (sum_clr.green > 0 ? sum_clr.green : 0);
+                sum_clr.green = (sum_clr.green < 255 ? sum_clr.green : 255);
+                sum.green = sum_clr.green;
 
-                sum.red = ((mid.red << 3) + (mid.red << 1)) - (col_0.red + col_1.red + col_2.red);
-                sum.red = sum.red > 0 ? sum.red : 0;
-                sum.red = sum.red < 255 ? sum.red : 255;
+                sum_clr.red = ((mid.red << 3) + (mid.red << 1)) - (col_0.red + col_1.red + col_2.red);
+                sum_clr.red = (sum_clr.red > 0 ? sum_clr.red : 0);
+                sum_clr.red = (sum_clr.red < 255 ? sum_clr.red : 255);
+                sum.red = sum_clr.red;
 
                 pixelsImg[currentColumPlus1Row + 1] = sum;
-                currentColum++, currentColumPlus1Row++, currentColumPlus2Row++;
-                mid = backupOrg[currentColumPlus1Row + 1];
                 col_0 = col_1;
                 col_1 = col_2;
+                currentColum++, currentColumPlus1Row++, currentColumPlus2Row++;
+                mid = backupOrg[currentColumPlus1Row + 1];
 
                 // loop undrolling moving one index to the right.
 
@@ -229,23 +223,26 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
                 col_2.green = p02.green + p12.green + p22.green;
                 col_2.red = p02.red + p12.red + p22.red;
 
-                sum.blue = ((mid.blue << 3) + (mid.blue << 1)) - (col_0.blue + col_1.blue + col_2.blue);
-                sum.blue = sum.blue > 0 ? sum.blue : 0;
-                sum.blue = sum.blue < 255 ? sum.blue : 255;
+                sum_clr.blue = ((mid.blue << 3) + (mid.blue << 1)) - (col_0.blue + col_1.blue + col_2.blue);
+                sum_clr.blue = (sum_clr.blue > 0 ? sum_clr.blue : 0);
+                sum_clr.blue = (sum_clr.blue < 255 ? sum_clr.blue : 255);
+                sum.blue = sum_clr.blue;
 
-                sum.green = ((mid.green << 3) + (mid.green << 1)) - (col_0.green + col_1.green + col_2.green);
-                sum.green = sum.green > 0 ? sum.green : 0;
-                sum.green = sum.green < 255 ? sum.green : 255;
+                sum_clr.green = ((mid.green << 3) + (mid.green << 1)) - (col_0.green + col_1.green + col_2.green);
+                sum_clr.green = (sum_clr.green > 0 ? sum_clr.green : 0);
+                sum_clr.green = (sum_clr.green < 255 ? sum_clr.green : 255);
+                sum.green = sum_clr.green;
 
-                sum.red = ((mid.red << 3) + (mid.red << 1)) - (col_0.red + col_1.red + col_2.red);
-                sum.red = sum.red > 0 ? sum.red : 0;
-                sum.red = sum.red < 255 ? sum.red : 255;
+                sum_clr.red = ((mid.red << 3) + (mid.red << 1)) - (col_0.red + col_1.red + col_2.red);
+                sum_clr.red = (sum_clr.red > 0 ? sum_clr.red : 0);
+                sum_clr.red = (sum_clr.red < 255 ? sum_clr.red : 255);
+                sum.red = sum_clr.red;
 
                 pixelsImg[currentColumPlus1Row + 1] = sum;
-                currentColum++, currentColumPlus1Row++, currentColumPlus2Row++;
-                mid = backupOrg[currentColumPlus1Row + 1];
                 col_0 = col_1;
                 col_1 = col_2;
+                currentColum++, currentColumPlus1Row++, currentColumPlus2Row++;
+                mid = backupOrg[currentColumPlus1Row + 1];
             }
 
             // time to handle the reminder - %2 == 1
@@ -258,22 +255,26 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
                 col_2.green = p02.green + p12.green + p22.green;
                 col_2.red = p02.red + p12.red + p22.red;
 
-                sum.blue = ((mid.blue << 3) + (mid.blue << 1)) - (col_0.blue + col_1.blue + col_2.blue);
-                sum.blue = sum.blue > 0 ? sum.blue : 0;
-                sum.blue = sum.blue < 255 ? sum.blue : 255;
+                sum_clr.blue = ((mid.blue << 3) + (mid.blue << 1)) - (col_0.blue + col_1.blue + col_2.blue);
+                sum_clr.blue = (sum_clr.blue > 0 ? sum_clr.blue : 0);
+                sum_clr.blue = (sum_clr.blue < 255 ? sum_clr.blue : 255);
+                sum.blue = sum_clr.blue;
 
-                sum.green = ((mid.green << 3) + (mid.green << 1)) - (col_0.green + col_1.green + col_2.green);
-                sum.green = sum.green > 0 ? sum.green : 0;
-                sum.green = sum.green < 255 ? sum.green : 255;
+                sum_clr.green = ((mid.green << 3) + (mid.green << 1)) - (col_0.green + col_1.green + col_2.green);
+                sum_clr.green = (sum_clr.green > 0 ? sum_clr.green : 0);
+                sum_clr.green = (sum_clr.green < 255 ? sum_clr.green : 255);
+                sum.green = sum_clr.green;
 
-                sum.red = ((mid.red << 3) + (mid.red << 1)) - (col_0.red + col_1.red + col_2.red);
-                sum.red = sum.red > 0 ? sum.red : 0;
-                sum.red = sum.red < 255 ? sum.red : 255;
+                sum_clr.red = ((mid.red << 3) + (mid.red << 1)) - (col_0.red + col_1.red + col_2.red);
+                sum_clr.red = (sum_clr.red > 0 ? sum_clr.red : 0);
+                sum_clr.red = (sum_clr.red < 255 ? sum_clr.red : 255);
+                sum.red = sum_clr.red;
 
                 pixelsImg[currentColumPlus1Row + 1] = sum;
             }
             row+=m;
         }
+
 
         j = 0;
         // replacement for the function pixelsToChars, set image-> accordingly.
