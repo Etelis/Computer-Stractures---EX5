@@ -17,6 +17,7 @@ You  could use compare.sh to run the program and check if any diffrances were fo
 ```bash
 ./compare.sh 20
 ```
+basic photos are provided withen the main folder, for additinal photos to check included folder
 Note: checker was note made by me.
 
 ## Algoritm  and implementation 
