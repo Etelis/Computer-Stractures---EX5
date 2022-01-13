@@ -1,4 +1,3 @@
-#pragma GCC optimize ("O1,O2,O3,Ofast,unroll-loops,fast-math")
 #include <stdbool.h>
 
 #define MN m*n
@@ -47,9 +46,9 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
 //    int sharpKernel[3][3] = {{-1,-1,-1},{-1,9,-1},{-1,-1,-1}};
 
     // iteration on matrix in an optimized way.
-    register int_fast16_t endOfIteration = m - 1;
-    register int_fast16_t i, j;
-    int_fast16_t size = MN * sizeof(pixel);
+    register uint_fast16_t endOfIteration = m - 1;
+    register uint_fast16_t i, j;
+    uint_fast16_t size = MN * sizeof(pixel);
 
     // if condition 1 is filled.
     if (flag == '1') {
@@ -63,13 +62,14 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
 
         // let's implement the smooth function:
         // avoiding unnecessary calculation, using loop unrolling.
-        register int_fast16_t  currentColum, row = 0;
+        register uint_fast16_t  currentColum, row = 0, apply_index;
         register pixel *p00, *p01, *p02, *p10, *p11, *p12, *p20, *p21, *p22;
         register pixel_sum col_0 = {}, col_1 = {}, col_2 = {};
 
         // calculate two colums in every row and join with the third.
         for (i = 1; i < endOfIteration; ++i) {
             currentColum = row;
+            apply_index = row + m + 1;
 
             p00 = &backupOrg[currentColum];
             p01 = p00 + 1;
@@ -77,6 +77,11 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
             p11 = p10 + 1;
             p20 = p10 + m;
             p21 = p20 + 1;
+
+            // third row calculation.
+            p02 = p00 + 2;
+            p12 = p02 + m;
+            p22 = p12 + m;
 
             col_0.blue = p00->blue + p10->blue + p20->blue;
             col_0.green = p00->green + p10->green + p20->green;
@@ -86,62 +91,53 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
             col_1.green = p01->green + p11->green + p21->green;
             col_1.red = p01->red + p11->red + p21->red;
 
-
             for (j = 4; j <= endOfIteration; j+=2) {
-                p00 = &backupOrg[currentColum];
-
-                // third row calculation.
-                p02 = p00 + 2;
-                p12 = p02 + m;
-                p22 = p12 + m;
 
                 col_2.blue = p02->blue + p12->blue + p22->blue;
                 col_2.green = p02->green + p12->green + p22->green;
                 col_2.red = p02->red + p12->red + p22->red;
 
-                pixelsImg[currentColum + m + 1].blue = (col_0.blue + col_1.blue + col_2.blue) / 9;
-                pixelsImg[currentColum + m + 1].red = (col_0.red + col_1.red + col_2.red) / 9;
-                pixelsImg[currentColum + m + 1].green = (col_0.green + col_1.green + col_2.green) / 9;
+                pixelsImg[apply_index].blue = (col_0.blue + col_1.blue + col_2.blue) / 9;
+                pixelsImg[apply_index].red = (col_0.red + col_1.red + col_2.red) / 9;
+                pixelsImg[apply_index].green = (col_0.green + col_1.green + col_2.green) / 9;
 
                 col_0 = col_1;
                 col_1 = col_2;
-                currentColum++;
+                apply_index++;
+                p00++;
+                p02++;
+                p12++;
+                p22++;
 
                 // loop undrolling moving one index to the right.
-                p00 = &backupOrg[currentColum];
-
-                p02 = p00 + 2;
-                p12 = p02 + m;
-                p22 = p12 + m;
 
                 col_2.blue = p02->blue + p12->blue + p22->blue;
                 col_2.green = p02->green + p12->green + p22->green;
                 col_2.red = p02->red + p12->red + p22->red;
 
-                pixelsImg[currentColum + m + 1].blue = (col_0.blue + col_1.blue + col_2.blue) / 9;
-                pixelsImg[currentColum + m + 1].red = (col_0.red + col_1.red + col_2.red) / 9;
-                pixelsImg[currentColum + m + 1].green = (col_0.green + col_1.green + col_2.green) / 9;
+                pixelsImg[apply_index].blue = (col_0.blue + col_1.blue + col_2.blue) / 9;
+                pixelsImg[apply_index].red = (col_0.red + col_1.red + col_2.red) / 9;
+                pixelsImg[apply_index].green = (col_0.green + col_1.green + col_2.green) / 9;
 
                 col_0 = col_1;
                 col_1 = col_2;
-                currentColum++;
+                apply_index++;
+                p00++;
+                p02++;
+                p12++;
+                p22++;
             }
 
             // time to handle the reminder - %2 == 1
             if (currentColum != endOfIteration){
-                p00 = &backupOrg[currentColum];
-
-                p02 = p00 + 2;
-                p12 = p02 + m;
-                p22 = p12 + m;
 
                 col_2.blue = p02->blue + p12->blue + p22->blue;
                 col_2.green = p02->green + p12->green + p22->green;
                 col_2.red = p02->red + p12->red + p22->red;
 
-                pixelsImg[currentColum + m + 1].blue = (col_0.blue + col_1.blue + col_2.blue) / 9;
-                pixelsImg[currentColum + m + 1].red = (col_0.red + col_1.red + col_2.red) / 9;
-                pixelsImg[currentColum + m + 1].green = (col_0.green + col_1.green + col_2.green) / 9;
+                pixelsImg[apply_index].blue = (col_0.blue + col_1.blue + col_2.blue) / 9;
+                pixelsImg[apply_index].red = (col_0.red + col_1.red + col_2.red) / 9;
+                pixelsImg[apply_index].green = (col_0.green + col_1.green + col_2.green) / 9;
             }
             row+=m;
         }
@@ -162,6 +158,7 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
 
         for (i = 1; i < endOfIteration; ++i) {
             currentColum = row;
+            apply_index = row + m + 1;
 
             p00 = &backupOrg[currentColum];
             p01 = p00 + 1;
@@ -170,6 +167,10 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
             p20 = p10 + m;
             p21 = p20 + 1;
 
+            // third row calculation.
+            p02 = p00 + 2;
+            p12 = p02 + m;
+            p22 = p12 + m;
 
             col_0.blue = p00->blue + p10->blue + p20->blue;
             col_0.green = p00->green + p10->green + p20->green;
@@ -179,91 +180,74 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
             col_1.green = p01->green + p11->green + p21->green;
             col_1.red = p01->red + p11->red + p21->red;
 
-            for (j = 4; j <= endOfIteration; j+=2) {
-                p00 = &backupOrg[currentColum];
 
-                p02 = p00 + 2;
-                p12 = p02 + m;
-                p22 = p12 + m;
+            for (j = 4; j <= endOfIteration; j+=2) {
 
                 col_2.blue = p02->blue + p12->blue + p22->blue;
                 col_2.green = p02->green + p12->green + p22->green;
                 col_2.red = p02->red + p12->red + p22->red;
 
                 sum_clr.blue = (MULT_10(mid->blue)) + MULT_MINUS_1(col_0.blue + col_1.blue + col_2.blue);
-                sum_clr.blue = (unsigned char) MIN(MAX(sum_clr.blue));
 
                 sum_clr.green = (MULT_10(mid->green)) + MULT_MINUS_1(col_0.green + col_1.green + col_2.green);
-                sum_clr.green = (unsigned char) MIN(MAX(sum_clr.green));
 
                 sum_clr.red = (MULT_10(mid->red)) + MULT_MINUS_1(col_0.red + col_1.red + col_2.red);
-                sum_clr.red = (unsigned char) MIN(MAX(sum_clr.red));
 
-                pixelsImg[currentColum + m + 1].red = (unsigned char) sum_clr.red;
-                pixelsImg[currentColum + m + 1].green = (unsigned char) sum_clr.green;
-                pixelsImg[currentColum + m + 1].blue = (unsigned char) sum_clr.blue;
+                pixelsImg[apply_index].red = MIN(MAX(sum_clr.red));
+                pixelsImg[apply_index].green = MIN(MAX(sum_clr.green));
+                pixelsImg[apply_index].blue = MIN(MAX(sum_clr.blue));
 
                 col_0 = col_1;
                 col_1 = col_2;
-                mid = p12;
 
-                currentColum++;
+                mid++;
+                apply_index++;
+                p00++;
+                p02++;
+                p12++;
+                p22++;
 
                 // loop undrollving moving one index to the right.
 
-                p00 = &backupOrg[currentColum];
-
-                p02 = p00 + 2;
-                p12 = p02 + m;
-                p22 = p12 + m;
-
                 col_2.blue = p02->blue + p12->blue + p22->blue;
                 col_2.green = p02->green + p12->green + p22->green;
                 col_2.red = p02->red + p12->red + p22->red;
 
                 sum_clr.blue = (MULT_10(mid->blue)) + MULT_MINUS_1(col_0.blue + col_1.blue + col_2.blue);
-                sum_clr.blue = (unsigned char) MIN(MAX(sum_clr.blue));
-
                 sum_clr.green = (MULT_10(mid->green)) + MULT_MINUS_1(col_0.green + col_1.green + col_2.green);
-                sum_clr.green = (unsigned char) MIN(MAX(sum_clr.green));
 
                 sum_clr.red = (MULT_10(mid->red)) + MULT_MINUS_1(col_0.red + col_1.red + col_2.red);
-                sum_clr.red = (unsigned char) MIN(MAX(sum_clr.red));
 
-                pixelsImg[currentColum + m + 1].red = (unsigned char) sum_clr.red;
-                pixelsImg[currentColum + m + 1].green = (unsigned char) sum_clr.green;
-                pixelsImg[currentColum + m + 1].blue = (unsigned char) sum_clr.blue;
+                pixelsImg[apply_index].red = MIN(MAX(sum_clr.red));
+                pixelsImg[apply_index].green = MIN(MAX(sum_clr.green));
+                pixelsImg[apply_index].blue = MIN(MAX(sum_clr.blue));
 
                 col_0 = col_1;
                 col_1 = col_2;
-                mid = p12;
-                currentColum++;
+                mid++;
+                apply_index++;
+                p00++;
+                p02++;
+                p12++;
+                p22++;
             }
 
             // time to handle the reminder - %2 == 1
             if (currentColum != endOfIteration){
-                p00 = &backupOrg[currentColum];
-
-                p02 = p00 + 2;
-                p12 = p02 + m;
-                p22 = p12 + m;
 
                 col_2.blue = p02->blue + p12->blue + p22->blue;
                 col_2.green = p02->green + p12->green + p22->green;
                 col_2.red = p02->red + p12->red + p22->red;
 
                 sum_clr.blue = (MULT_10(mid->blue)) + MULT_MINUS_1(col_0.blue + col_1.blue + col_2.blue);
-                sum_clr.blue = (unsigned char) MIN(MAX(sum_clr.blue));
 
                 sum_clr.green = (MULT_10(mid->green)) + MULT_MINUS_1(col_0.green + col_1.green + col_2.green);
-                sum_clr.green = (unsigned char) MIN(MAX(sum_clr.green));
 
                 sum_clr.red = (MULT_10(mid->red)) + MULT_MINUS_1(col_0.red + col_1.red + col_2.red);
-                sum_clr.red = (unsigned char) MIN(MAX(sum_clr.red));
 
-                pixelsImg[currentColum + m + 1].red = (unsigned char) sum_clr.red;
-                pixelsImg[currentColum + m + 1].green = (unsigned char) sum_clr.green;
-                pixelsImg[currentColum + m + 1].blue = (unsigned char) sum_clr.blue;
+                pixelsImg[apply_index].red = MIN(MAX(sum_clr.red));
+                pixelsImg[apply_index].green = MIN(MAX(sum_clr.green));
+                pixelsImg[apply_index].blue = MIN(MAX(sum_clr.blue));
 
             }
             row+=m;
@@ -281,12 +265,13 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
 
         // let's implement the smooth function:
         // avoiding unnessery calculation, using loop unrolling.
-        register int_fast16_t currentColum, row = 0, saved_intensity, saved_intensity_2, saved_intensity_3, saved_intensity_4, saved_intensity_5, saved_intensity_6, saved_intensity_7, saved_intensity_8, saved_intensity_9;
+        register int_fast16_t currentColum, row = m, saved_intensity, saved_intensity_2, saved_intensity_3, saved_intensity_4, saved_intensity_5, saved_intensity_6, saved_intensity_7, saved_intensity_8, saved_intensity_9, apply_index;
         register pixel *p00, *p01, *p02, *p10, *p11, *p12, *p20, *p21, *p22, *min_index, *max_index;;
         register pixel_sum col_0 = {}, col_1 = {}, col_2 = {}, sum_clr;
 
         for (i = 1; i < endOfIteration; ++i) {
-            currentColum = row;
+            currentColum = row - m;
+            apply_index = row + 1;
 
             p00 = &backupOrg[currentColum];
             p01 = p00 + 1;
@@ -294,6 +279,11 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
             p11 = p10 + 1;
             p20 = p10 + m;
             p21 = p20 + 1;
+
+            // third row calculation.
+            p02 = p00 + 2;
+            p12 = p02 + m;
+            p22 = p12 + m;
 
             col_0.blue = p00->blue + p10->blue + p20->blue;
             col_0.green = p00->green + p10->green + p20->green;
@@ -314,12 +304,6 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
             for (j = 4; j <= endOfIteration; ++j) {
                 register int_fast16_t min_intensity = 766; // arbitrary value that is higher than maximum possible intensity, which is 255*3=765
                 register int_fast16_t max_intensity = -1; // arbitrary value that is lower than minimum possible intensity, which is 0
-
-                p00 = &backupOrg[currentColum];
-
-                p02 = p00 + 2;
-                p12 = p02 + m;
-                p22 = p12 + m;
 
                 saved_intensity_3 = (p02)->red + (p02)->green + (p02)->blue;
                 saved_intensity_6 = (p12)->red + (p12)->green + (p12)->blue;
@@ -414,19 +398,19 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
                     max_index = p22;
                     max_intensity = saved_intensity_9;
                 }
+
                 col_2.blue = p02->blue + p12->blue + p22->blue;
                 col_2.green = p02->green + p12->green + p22->green;
                 col_2.red = p02->red + p12->red + p22->red;
 
-                sum_clr.blue = (col_0.blue + col_1.blue + col_2.blue) + (int_fast16_t)MULT_MINUS_1((min_index->blue + max_index->blue));
-                sum_clr.red = (col_0.red + col_1.red + col_2.red) + (int_fast16_t)MULT_MINUS_1(min_index->red + max_index->red);
-                sum_clr.green = (col_0.green + col_1.green + col_2.green) + (int_fast16_t)MULT_MINUS_1(min_index->green + max_index->green);
+                sum_clr.blue = (col_0.blue + col_1.blue + col_2.blue) + MULT_MINUS_1((min_index->blue + max_index->blue));
+                sum_clr.red = (col_0.red + col_1.red + col_2.red) + MULT_MINUS_1(min_index->red + max_index->red);
+                sum_clr.green = (col_0.green + col_1.green + col_2.green) + MULT_MINUS_1(min_index->green + max_index->green);
 
-                pixelsImg[currentColum + m + 1].blue = (unsigned char) (sum_clr.blue / 7);
-                pixelsImg[currentColum + m + 1].red = (unsigned char) (sum_clr.red / 7);
-                pixelsImg[currentColum + m + 1].green = (unsigned char) (sum_clr.green / 7);
+                pixelsImg[apply_index].blue = (sum_clr.blue / 7);
+                pixelsImg[apply_index].red = (sum_clr.red / 7);
+                pixelsImg[apply_index].green = (sum_clr.green / 7);
 
-                currentColum++;
                 col_0 = col_1;
                 col_1 = col_2;
 
@@ -436,6 +420,13 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
                 saved_intensity_5 = saved_intensity_6;
                 saved_intensity_7 = saved_intensity_8;
                 saved_intensity_8 = saved_intensity_9;
+                p00++;
+                p02++;
+                p12++;
+                p22++;
+
+                apply_index++;
+
             }
             row+= m;
         }
@@ -451,8 +442,10 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
         pixel *mid;
         row = 0;
 
+
         for (i = 1; i < endOfIteration; ++i) {
             currentColum = row;
+            apply_index = row + m + 1;
 
             p00 = &backupOrg[currentColum];
             p01 = p00 + 1;
@@ -461,6 +454,10 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
             p20 = p10 + m;
             p21 = p20 + 1;
 
+            // third row calculation.
+            p02 = p00 + 2;
+            p12 = p02 + m;
+            p22 = p12 + m;
 
             col_0.blue = p00->blue + p10->blue + p20->blue;
             col_0.green = p00->green + p10->green + p20->green;
@@ -470,92 +467,75 @@ void myfunction(Image *image, char* srcImgpName, char* blurRsltImgName, char* sh
             col_1.green = p01->green + p11->green + p21->green;
             col_1.red = p01->red + p11->red + p21->red;
 
+
             for (j = 4; j <= endOfIteration; j+=2) {
-                p00 = &backupOrg[currentColum];
-
-                p02 = p00 + 2;
-                p12 = p02 + m;
-                p22 = p12 + m;
 
                 col_2.blue = p02->blue + p12->blue + p22->blue;
                 col_2.green = p02->green + p12->green + p22->green;
                 col_2.red = p02->red + p12->red + p22->red;
 
                 sum_clr.blue = (MULT_10(mid->blue)) + MULT_MINUS_1(col_0.blue + col_1.blue + col_2.blue);
-                sum_clr.blue = (unsigned char) MIN(MAX(sum_clr.blue));
 
                 sum_clr.green = (MULT_10(mid->green)) + MULT_MINUS_1(col_0.green + col_1.green + col_2.green);
-                sum_clr.green = (unsigned char) MIN(MAX(sum_clr.green));
 
                 sum_clr.red = (MULT_10(mid->red)) + MULT_MINUS_1(col_0.red + col_1.red + col_2.red);
-                sum_clr.red = (unsigned char) MIN(MAX(sum_clr.red));
 
-                pixelsImg[currentColum + m + 1].red = (unsigned char) sum_clr.red;
-                pixelsImg[currentColum + m + 1].green = (unsigned char) sum_clr.green;
-                pixelsImg[currentColum + m + 1].blue = (unsigned char) sum_clr.blue;
+                pixelsImg[apply_index].red = MIN(MAX(sum_clr.red));
+                pixelsImg[apply_index].green = MIN(MAX(sum_clr.green));
+                pixelsImg[apply_index].blue = MIN(MAX(sum_clr.blue));
 
                 col_0 = col_1;
                 col_1 = col_2;
-                mid = p12;
 
-                currentColum++;
-                // mid = backupOrg[currentColumPlus1Row + 1];
+                mid++;
+                apply_index++;
+                p00++;
+                p02++;
+                p12++;
+                p22++;
 
-                // loop undrolling moving one index to the right.
-
-                p00 = &backupOrg[currentColum];
-
-                p02 = p00 + 2;
-                p12 = p02 + m;
-                p22 = p12 + m;
+                // loop undrollving moving one index to the right.
 
                 col_2.blue = p02->blue + p12->blue + p22->blue;
                 col_2.green = p02->green + p12->green + p22->green;
                 col_2.red = p02->red + p12->red + p22->red;
 
                 sum_clr.blue = (MULT_10(mid->blue)) + MULT_MINUS_1(col_0.blue + col_1.blue + col_2.blue);
-                sum_clr.blue = (unsigned char) MIN(MAX(sum_clr.blue));
-
                 sum_clr.green = (MULT_10(mid->green)) + MULT_MINUS_1(col_0.green + col_1.green + col_2.green);
-                sum_clr.green = (unsigned char) MIN(MAX(sum_clr.green));
 
                 sum_clr.red = (MULT_10(mid->red)) + MULT_MINUS_1(col_0.red + col_1.red + col_2.red);
-                sum_clr.red = (unsigned char) MIN(MAX(sum_clr.red));
 
-                pixelsImg[currentColum + m + 1].red = (unsigned char) sum_clr.red;
-                pixelsImg[currentColum + m + 1].green = (unsigned char) sum_clr.green;
-                pixelsImg[currentColum + m + 1].blue = (unsigned char) sum_clr.blue;
+                pixelsImg[apply_index].red = MIN(MAX(sum_clr.red));
+                pixelsImg[apply_index].green = MIN(MAX(sum_clr.green));
+                pixelsImg[apply_index].blue = MIN(MAX(sum_clr.blue));
 
                 col_0 = col_1;
                 col_1 = col_2;
-                mid = p12;
-                currentColum++;
+                mid++;
+                apply_index++;
+                p00++;
+                p02++;
+                p12++;
+                p22++;
             }
 
             // time to handle the reminder - %2 == 1
             if (currentColum != endOfIteration){
-                p00 = &backupOrg[currentColum];
-
-                p02 = p00 + 2;
-                p12 = p02 + m;
-                p22 = p12 + m;
 
                 col_2.blue = p02->blue + p12->blue + p22->blue;
                 col_2.green = p02->green + p12->green + p22->green;
                 col_2.red = p02->red + p12->red + p22->red;
 
                 sum_clr.blue = (MULT_10(mid->blue)) + MULT_MINUS_1(col_0.blue + col_1.blue + col_2.blue);
-                sum_clr.blue = (unsigned char) MIN(MAX(sum_clr.blue));
 
                 sum_clr.green = (MULT_10(mid->green)) + MULT_MINUS_1(col_0.green + col_1.green + col_2.green);
-                sum_clr.green = (unsigned char) MIN(MAX(sum_clr.green));
 
                 sum_clr.red = (MULT_10(mid->red)) + MULT_MINUS_1(col_0.red + col_1.red + col_2.red);
-                sum_clr.red = (unsigned char) MIN(MAX(sum_clr.red));
 
-                pixelsImg[currentColum + m + 1].red = (unsigned char) sum_clr.red;
-                pixelsImg[currentColum + m + 1].green = (unsigned char) sum_clr.green;
-                pixelsImg[currentColum + m + 1].blue = (unsigned char) sum_clr.blue;
+                pixelsImg[apply_index].red = MIN(MAX(sum_clr.red));
+                pixelsImg[apply_index].green = MIN(MAX(sum_clr.green));
+                pixelsImg[apply_index].blue = MIN(MAX(sum_clr.blue));
+
             }
             row+=m;
         }
